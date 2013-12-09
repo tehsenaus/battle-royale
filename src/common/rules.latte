@@ -205,7 +205,7 @@ module.exports = function (P) {
 		}
 	});
 
-	rules.RoyalePlayer = new coop.Class([RoyaleDeck, core.Player], {
+	rules.RoyalePlayer = new coop.Class([core.Player, RoyaleDeck], {
 		initialize: function (data) {
 			this.super.apply(this, arguments);
 			this.hp = P(typeof data.hp === 'number' ? data.hp : 4);
