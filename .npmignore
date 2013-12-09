@@ -1,0 +1,5 @@
+./src
+./lib/client
+bower.json
+Gruntfile.js
+.npmignore

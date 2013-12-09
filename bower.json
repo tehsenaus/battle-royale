@@ -1,0 +1,24 @@
+{
+  "name": "battle-royale",
+  "version": "0.0.1",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ],
+  "dependencies": {
+    "bootstrap": "3.0.0",
+    "knockout.js": "~2.3.0",
+    "less.js": "~1.4.2",
+    "knockout-mapping": "~2.4.1"
+  },
+  "install": {
+    "path": "static/lib",
+    "sources": {
+      "less.js": "bower_components/less.js/dist/less-1.4.2.js",
+      "knockout-mapping": "bower_components/knockout-mapping/build/output/knockout.mapping-latest.js"
+    }
+  }
+}

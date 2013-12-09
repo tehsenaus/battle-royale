@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+<head>
+<link href="/lib/bootstrap/bootstrap.css" rel="stylesheet">
+<link href="//netdna.bootstrapcdn.com/font-awesome/3.1.1/css/font-awesome.css" rel="stylesheet">
+
+<link rel="stylesheet" type="text/css" href="styles.css" />
+</head>
+
+<body>
+<div class="well" style="width: 50%; margin: 0 auto" data-bind="visible: false">Loading...</div>
+<div id="page" style="display: none" data-bind="visible: true">
+
+<div class="navbar navbar-inverse navbar-fixed-top">
+    <div class="navbar-header">
+        <a class="navbar-brand" href="#">
+            <span id="logo"><i class="icon-star"></i></span>
+            BATTLE ROYALE</a>
+    </div>
+
+    <div class="navbar-collapse collapse">
+        <ul class="nav navbar-nav">
+            <li>
+                <a href=#>Home</a>
+            </li>
+        </ul>
+    </div>
+</div>
+
+
+<div class="container">
+
+<div class="row">
+
+    <div class="col-md-8">
+        <div class="panel panel-default" data-bind="visible: stage() && stage().actor == player()">
+          <div class="panel-heading">
+            <span data-bind="text: player() && player().name"></span>:
+            <span data-bind="text: stage() && stage().stage"></span>
+          </div>
+          <div class="panel-body">
+            <ul data-bind="foreach: getActions()">
+                <li><a data-bind="click: function () { $parent.chooseAction($data) }">
+                    <span data-bind="text: name"></span>
+                </a></li>
+            </ul>
+
+            <ul data-bind="foreach: stage() && stage().choices || []">
+                <li><a data-bind="click: function () { $parent.stage().chooseD.resolve($data) }">
+                    <span data-bind="text: $data"></span>
+                </a></li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="panel panel-default">
+          <div class="panel-heading">Players</div>
+          <div class="panel-body">
+            <ul data-bind="foreach: game.players()">
+                <li data-bind="text: $data"></li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="panel panel-default">
+          <div class="panel-heading">Your Hand</div>
+          <div class="panel-body">
+            <ul data-bind="foreach: player().getCards()">
+                <li data-bind="text: $data"></li>
+            </ul>
+          </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="panel panel-default">
+          <div class="panel-heading">History</div>
+          <div class="panel-body">
+            <ul data-bind="foreach: player().getCards()">
+                <li data-bind="text: $data"></li>
+            </ul>
+          </div>
+        </div>
+    </div>
+</div>
+
+</div>
+
+
+<script src="/lib/jquery/jquery.js"></script>
+<script src="/lib/bootstrap/bootstrap.js"></script>
+<script src="/lib/knockout.js/knockout.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/knockout-bootstrap/0.2.1/knockout-bootstrap.min.js"></script>
+<script src="/socket.io/socket.io.js"></script>
+<script src="/lib/knockout-mapping/knockout.mapping-latest.js"></script>
+<script src="/app.js"></script>
+</div>
+</body>
+</html>
