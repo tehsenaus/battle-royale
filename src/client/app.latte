@@ -47,7 +47,7 @@ var Game = rules.RoyaleGame.derived({
 			actor: actor,
 			action: action,
 			stage: 'choose player for ' + action,
-			choices: this.players(),
+			choices: this.players().filter(x => x != actor),
 			chooseD: d
 		});
 
