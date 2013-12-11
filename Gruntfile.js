@@ -32,6 +32,10 @@ module.exports = function(grunt) {
       client: {
         files: {
           'static/app.js': ['lib/client/app.js'],
+        },
+        options: {
+          ignore: ['amdefine'],
+          transform: ['debowerify']
         }
       }
     },

@@ -13,8 +13,10 @@ module.exports = function (P) {
 		stages: ['turn', 'retaliate'],
 
 		perform: function (game, actor, data, stage) {
-			var me = this;
-			return this.super.apply(this, arguments).then(() => do {
+			var me = this, args = arguments;
+			return do {
+				<< this.supercall(AttackAction, 'perform', args);
+
 				var subject = data.playerActionSubject;
 				var damage = me.getDamage(game, actor, data);
 
@@ -30,10 +32,15 @@ module.exports = function (P) {
 				<< game.stage(subject, 'defend ' + me.attackType, defendData);
 
 				// Retaliation stage
-				if (!defendData.noRetaliation && stage == 'turn') {
-					<< game.stage(subject, 'retaliate', defendData);					
+				if (!defendData.noRetaliation && subject.isAlive() && stage == 'turn') {
+					<< game.stage(subject, 'retaliate', {
+						attacker: actor,
+						playerActionSubject: actor,
+						attack: me,
+						damage: damage
+					});
 				}
-			});
+			};
 		},
 
 		getDamage: function () {
@@ -42,9 +49,16 @@ module.exports = function (P) {
 	});
 	var DefendAction = Action.derived({
 		perform: function (game, actor, data) {
-			var damage = Math.max(data.damage - (this.stopDamage || 0), 0);
+			var args = arguments;
+			return do {
+				<< this.supercall(DefendAction, 'perform', args);
 
-			actor.hp = P(P.get(actor.hp) - damage, {}, actor.hp);
+				var damage = Math.max(data.damage - (this.stopDamage || 0), 0);
+
+				actor.hp = P(P.get(actor.hp) - damage, {}, actor.hp);
+
+				data.noRetaliation = this.noRetaliation;
+			};
 		},
 
 		getStopDamage: function (game, actor, data) {
@@ -56,7 +70,7 @@ module.exports = function (P) {
 		attackType: 'shot'
 	});
 
-	var RoyaleDeck = core.Deck.derived({
+	var RoyaleDeck = new coop.Class("RoyaleDeck", core.Deck, {
 		wildcardType: "W",
 
 		cardTypes: {
@@ -136,7 +150,7 @@ module.exports = function (P) {
 				stopDamage: 1
 			}),
 
-			Action.derived({
+			DefendAction.derived({
 				name: 'Run Away',
 				uses: 'A',
 				stages: ['defend sickle'],
@@ -181,7 +195,7 @@ module.exports = function (P) {
 		].map(A => new A())
 	})
 
-	rules.RoyaleGame = new coop.Class([RoyaleDeck, core.Game], {
+	rules.RoyaleGame = new coop.Class("RoyaleGame", [RoyaleDeck, core.Game], {
 		initialize: function (data) {
 			data.returnedCards = data.returnedCards || core.DECK;
 			this.super.apply(this, arguments);

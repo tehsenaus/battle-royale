@@ -1,5 +1,272 @@
 ;(function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);throw new Error("Cannot find module '"+o+"'")}var f=n[o]={exports:{}};t[o][0].call(f.exports,function(e){var n=t[o][1][e];return s(n?n:e)},f,f.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
-var coop = require('coop'), P = require('./property');
+
+(function (root, factory) {
+    if (typeof define === 'function' && define.amd) {
+        factory(define);
+    } else {
+        //Browser globals case.
+        var name = 'coop',
+            defined = {},
+            node = typeof require === 'function';
+
+        if ( node ) {
+        } else {
+        };
+
+        factory(function (name, deps, factory) {
+            var basePath = name.slice(0, name.lastIndexOf('/') + 1);
+
+            for ( var i = 0; i < deps.length; i++ ) {
+                var depPath = deps[i];
+
+                if ( depPath[0] == '.' ) {
+                    depPath = './' + basePath + depPath.slice(2);
+                }
+                
+                var dep = defined[depPath];
+                if (!dep) {
+                    throw new Error(name + ": undefined module - " + depPath);
+                }
+                deps[i] = dep;
+            }
+
+            defined['./' + name] = factory.apply(this, deps);
+        });
+
+        var pkg = defined['./coop'];
+        if ( node ) {
+            module.exports = pkg;
+        } else {
+            root['coop'] = pkg;
+        }
+    }
+}(this, function (define) {
+    
+
+
+
+define('lib/coop',[],function () {
+	var coop = {};
+
+	var Type = coop.Type = function Type () {
+		
+	};
+
+
+	function makeArray(a) {
+		return a instanceof Array ? a : [a];
+	}
+
+	function merge(a) {
+		var lin = [];
+		while(a.length) {
+			
+			var head = null;
+			for(var i = 0; i < a.length; i++) {
+				var h = a[i][0];
+				if(!a.some(function(b) {
+					return b.indexOf(h) > 0;
+				}))
+				{
+					head = h;
+					break;
+				}
+			}
+			if(!head) {
+				throw new Error("No linearization possible for " + a.join(','));
+			}
+			
+			lin.push(head);
+			
+			a = a.map(function (b) {
+				return b.filter(function (c) {
+					return c !== head;
+				});
+			});
+			a = a.filter(function (b) {
+				return b.length;
+			});
+			
+		}
+		return lin;
+	}
+
+
+
+	// Top type
+	function Top() {
+		
+	}
+	Top.prototype.initialize = function () {
+		
+	};
+	Top.__mro__ = [Top];
+	Top.subclasses = [];
+	Top.__dict__ = Top.prototype;
+	Top.toString = function () {
+		return "<object>"
+	}
+
+
+	// Returns the prototype
+	coop.Class = function(name_or_bases_or_klass, bases_or_klass, klass) {
+		var name = (typeof name_or_bases_or_klass == "string") && name_or_bases_or_klass;
+		var bases = name
+			? (klass ? makeArray(bases_or_klass) : [])
+			: (bases_or_klass ? makeArray(name_or_bases_or_klass) : []);
+		klass = klass || bases_or_klass || name_or_bases_or_klass;
+		
+		if(bases.length == 0) bases.push(Top);
+		
+		function Class() {
+			if(this.initialize)
+				this.initialize.apply(this, arguments);
+		}
+		
+		Class.prototype = {};
+		Class.__dict__ = {};
+		Class.__name__ = name || "<class>";
+		Class.prototype.constructor = Class;
+		Class.subclasses = [];
+		Class.toString = function () {
+			return this.__name__;
+		}
+		
+		var base_mros = bases.map(function(b) { return b.__mro__; });
+		if(bases.length) base_mros.push(bases);
+		
+		Class.__mro__ = [Class].concat(merge(base_mros));
+		var supercall = Class.prototype.supercall = function (klass, methodName, args) {
+			return klass._super(this, methodName).apply(this, args || []);	
+		}
+		var _super = Class.prototype['super'] = Class.prototype._super = function () {
+			var caller = _super.caller;
+			var klass = caller.__class__;
+			if(!klass)
+				throw new Error("super must be called from within method.\nIn a callback, use this.supercall(Class, method[, args])");
+			
+			return supercall.call(this, klass, caller.__name__, arguments);
+		}
+		var super_co = Class.prototype.super_co = function(args, n) {
+			// Caller hack
+			var caller = super_co.caller;
+			super_co.__class__ = caller.__class__;
+			super_co.__name__ = caller.__name__;
+			return this['super'].apply(this, Array.prototype.slice.call(args, n));
+		}
+
+		// Searches the MRO of the passed instance for the specified
+		// property, starting from the superclass of this class.
+		Class['super'] = Class._super = function (instance, propertyName) {
+			var klass = Class;
+			var mro = instance.constructor.__mro__;
+			for(var i = mro.indexOf(klass) + 1; i < mro.length; i++) {
+				var c = mro[i];
+				if(propertyName in c.__dict__) {
+					return c.__dict__[propertyName];
+				}
+			}
+			throw new Error("Property " + propertyName + " has no definition in superclasses. MRO: " + mro);
+		}
+
+		Class.issuperclass = function (cls) {
+			var mro = cls.__mro__;
+			return mro && mro.indexOf(this) >= 0;
+		}
+		Class.isinstance = function (obj) {
+			return Class.issuperclass(obj.constructor);
+		}
+		
+		// Holds class property sources
+		Class.__props__ = {};
+		
+		Class.implement = function(props, klass) {
+			// Save class in functions for super() support
+			if(!klass) for(var n in props) {
+				var p = props[n];
+				if(typeof p == 'function') {
+					p.__class__ = Class;
+					p.__name__ = n;
+				}
+				Class.__dict__[n] = p;
+			};
+			
+			klass = klass || Class;
+			for(var n in props) {
+				var p = props[n];
+				var pc = Class.__props__.hasOwnProperty(n) && Class.__props__[n];
+				if(!pc || Class.__mro__.indexOf(klass) <= Class.__mro__.indexOf(pc)) {
+					Class.prototype[n] = p;
+					Class.__props__[n] = klass;
+				}
+			}
+			Class.subclasses.forEach(function(s) {
+				s.implement(props, klass);
+			});
+		}
+		
+		Class.implement(klass);
+		
+		bases.forEach(function(b) {
+			b.subclasses.push(Class);
+			for(var n in b.__props__) {
+				var ps = {}
+				ps[n] = b.prototype[n];
+				Class.implement(ps, b.__props__[n]);
+			}
+		});
+		
+		Class.derived = function (name_or_properties, properties) {
+			return new coop.Class(properties ? name_or_properties : Class,
+				properties ? Class : name_or_properties, properties);
+		};
+
+		return Class;
+	};
+
+	coop.Top = Top;
+
+	coop.Options = new coop.Class({
+		initialize: function(options) {
+			this.options = {};
+			for(var i = this.constructor.__mro__.length - 1; i >= 0; i--) {
+				var opts = this.constructor.__mro__[i].prototype.options;
+				if(opts) for(var n in opts) {
+					this.options[n] = opts[n];
+				}
+			}
+			if(options) for(var n in options) {
+				this.options[n] = options[n];
+			}
+			this._super.apply(this, Array.prototype.slice.call(arguments, 1));
+		}
+	});
+
+
+
+	coop.pop = function (args, n) {
+		return Array.prototype.slice.call(args, n === undefined ? 1 : n);
+	}
+	coop.push = function (args) {
+		return Array.prototype.concat.call(coop.pop(arguments), args);
+	}
+
+	return coop;
+});
+
+// This file is just added for convenience so this repository can be
+// directly checked out into a project's deps folder
+
+
+
+define('coop',['./lib/coop'], function (coop) {
+	return coop;
+});
+	
+}));
+
+},{}],2:[function(require,module,exports){
+var coop = require("./../../bower_components/coop/dist/coop.js"), P = require('./property');
 var socket = io.connect();
 var core = window.core = require('../common/core')(P);
 var rules = window.rules = require('../common/rules')(P);
@@ -78,27 +345,27 @@ var ViewModel = new coop.Class({
         }
     });
 ko.applyBindings(window.viewModel = new ViewModel());
-},{"../common/core":3,"../common/rules":4,"./property":2,"coop":5}],2:[function(require,module,exports){
+},{"../common/core":4,"../common/rules":5,"./../../bower_components/coop/dist/coop.js":1,"./property":3}],3:[function(require,module,exports){
 var P = module.exports = ko.mapping.fromJS;
 P.array = ko.mapping.fromJS;
 P.get = function (v) {
     return v();
 };
-},{}],3:[function(require,module,exports){
+},{}],4:[function(require,module,exports){
 function __iter(v, f) {
     v.forEach(f);
 }
 var __when = function (v, n) {
     return v && typeof v.then == 'function' ? v.then(n) : n(v);
 };
-var coop = require('coop');
+var coop = require("./../../bower_components/coop/dist/coop.js");
 var CARDS = 'A23456789TJQK', SUITS = 'DHSC', DECK = cprod(CARDS.split(''), SUITS.split('')).map(function (c) {
         return c.join('');
     });
 module.exports = function (P) {
     var core = {};
     core.DECK = DECK;
-    var Deck = core.Deck = new coop.Class({
+    var Deck = core.Deck = new coop.Class('Deck', {
             initialize: function (data) {
                 this.cards = P.array(data.cards);
             },
@@ -171,7 +438,7 @@ module.exports = function (P) {
                 }.call(this);
             }
         });
-    core.Game = new coop.Class([Deck], {
+    core.Game = new coop.Class('Game', [Deck], {
         initialize: function (data) {
             console.log('init game');
             this.super(data);
@@ -235,7 +502,7 @@ module.exports = function (P) {
             });
         }
     });
-    core.Player = Deck.derived({
+    core.Player = Deck.derived('Player', {
         initialize: function (data, game) {
             this.super(data);
             this.game = game;
@@ -245,6 +512,7 @@ module.exports = function (P) {
             return this.super(game, this, patt, data);
         },
         perform: function (game, action, data, stage) {
+            console.log(this.toString(), 'perform', action.name, stage);
             return action.perform(game, this, data, stage);
         },
         returnCard: function (c) {
@@ -257,8 +525,10 @@ module.exports = function (P) {
             return this.name;
         }
     });
-    core.Action = new coop.Class({
+    core.Action = new coop.Class('Action', {
         isAvailable: function (game, actor, stage) {
+            console.log(stage, this.stages);
+            console.log(this.requires, this.stages);
             if (this.stages.indexOf(stage) < 0) {
                 return false;
             }
@@ -271,6 +541,7 @@ module.exports = function (P) {
             return true;
         },
         perform: function (game, actor, data, stage) {
+            console.log(actor, 'perform', this.name, stage);
             return function () {
                 if (!this.isAvailable(game, actor, stage)) {
                     throw new Error('Action not available!');
@@ -336,14 +607,14 @@ function cprod() {
         return ret;
     }, [[]]);
 }
-},{"coop":5}],4:[function(require,module,exports){
+},{"./../../bower_components/coop/dist/coop.js":1}],5:[function(require,module,exports){
 function __iter(v, f) {
     v.forEach(f);
 }
 var __when = function (v, n) {
     return v && typeof v.then == 'function' ? v.then(n) : n(v);
 };
-var coop = require('coop');
+var coop = require("./../../bower_components/coop/dist/coop.js");
 module.exports = function (P) {
     var core = require('./core')(P), rules = {};
     var Action = core.Action;
@@ -354,9 +625,10 @@ module.exports = function (P) {
                 'retaliate'
             ],
             perform: function (game, actor, data, stage) {
-                var me = this;
-                return this.super.apply(this, arguments).then(function () {
-                    return function () {
+                var me = this, args = arguments;
+                return function () {
+                    return __when(this.supercall(AttackAction, 'perform', args), function (__t0) {
+                        __t0;
                         var subject = data.playerActionSubject;
                         var damage = me.getDamage(game, actor, data);
                         console.log('attack: ' + me + ' ' + actor + ' -> ' + subject + ' for ' + damage + 'HP');
@@ -365,18 +637,23 @@ module.exports = function (P) {
                                 attack: me,
                                 damage: damage
                             };
-                        return __when(game.stage(subject, 'defend ' + me.attackType, defendData), function (__t0) {
-                            __t0;
-                            return __when(!defendData.noRetaliation && stage == 'turn' ? function () {
-                                return __when(game.stage(subject, 'retaliate', defendData), function (__t1) {
-                                    __t1;
+                        return __when(game.stage(subject, 'defend ' + me.attackType, defendData), function (__t1) {
+                            __t1;
+                            return __when(!defendData.noRetaliation && subject.isAlive() && stage == 'turn' ? function () {
+                                return __when(game.stage(subject, 'retaliate', {
+                                    attacker: actor,
+                                    playerActionSubject: actor,
+                                    attack: me,
+                                    damage: damage
+                                }), function (__t2) {
+                                    __t2;
                                 });
-                            }.call(this) : true, function (__t2) {
-                                __t2;
+                            }.call(this) : true, function (__t3) {
+                                __t3;
                             });
                         });
-                    }.call(this);
-                });
+                    });
+                }.call(this);
             },
             getDamage: function () {
                 return 1;
@@ -384,15 +661,23 @@ module.exports = function (P) {
         });
     var DefendAction = Action.derived({
             perform: function (game, actor, data) {
-                var damage = Math.max(data.damage - (this.stopDamage || 0), 0);
-                actor.hp = P(P.get(actor.hp) - damage, {}, actor.hp);
+                var args = arguments;
+                return function () {
+                    var __this = this;
+                    return __when(this.supercall(DefendAction, 'perform', args), function (__t0) {
+                        __t0;
+                        var damage = Math.max(data.damage - (__this.stopDamage || 0), 0);
+                        actor.hp = P(P.get(actor.hp) - damage, {}, actor.hp);
+                        data.noRetaliation = __this.noRetaliation;
+                    });
+                }.call(this);
             },
             getStopDamage: function (game, actor, data) {
                 return this.stopDamage;
             }
         });
     var ShootAction = AttackAction.derived({ attackType: 'shot' });
-    var RoyaleDeck = core.Deck.derived({
+    var RoyaleDeck = new coop.Class('RoyaleDeck', core.Deck, {
             wildcardType: 'W',
             cardTypes: {
                 'A': 'W',
@@ -471,7 +756,7 @@ module.exports = function (P) {
                     stages: ['defend sickle'],
                     stopDamage: 1
                 }),
-                Action.derived({
+                DefendAction.derived({
                     name: 'Run Away',
                     uses: 'A',
                     stages: ['defend sickle'],
@@ -517,11 +802,12 @@ module.exports = function (P) {
                 return new A();
             })
         });
-    rules.RoyaleGame = new coop.Class([
+    rules.RoyaleGame = new coop.Class('RoyaleGame', [
         RoyaleDeck,
         core.Game
     ], {
         initialize: function (data) {
+            console.log('init royale game', this.constructor.__mro__);
             data.returnedCards = data.returnedCards || core.DECK;
             this.super.apply(this, arguments);
         },
@@ -544,8 +830,8 @@ module.exports = function (P) {
         }
     });
     rules.RoyalePlayer = new coop.Class([
-        RoyaleDeck,
-        core.Player
+        core.Player,
+        RoyaleDeck
     ], {
         initialize: function (data) {
             this.super.apply(this, arguments);
@@ -560,6 +846,7 @@ module.exports = function (P) {
         },
         perform: function (game, action, data, stage) {
             var __this = this;
+            console.log(this.toString(), 'perform', action.name, stage);
             return __when(this.super.apply(this, arguments), function () {
                 if (!P.get(__this.hiding) && stage !== 'can hide') {
                     return game.stage(__this, 'can hide', {});
@@ -572,214 +859,5 @@ module.exports = function (P) {
     });
     return rules;
 };
-},{"./core":3,"coop":5}],5:[function(require,module,exports){
-// This file is just added for convenience so this repository can be
-// directly checked out into a project's deps folder
-module.exports = require('./lib/coop');
-},{"./lib/coop":6}],6:[function(require,module,exports){
-
-var coop = module.exports = {};
-
-var Type = exports.Type = function Type () {
-	
-};
-
-
-function makeArray(a) {
-	return a instanceof Array ? a : [a];
-}
-
-function merge(a) {
-	var lin = [];
-	while(a.length) {
-		
-		var head = null;
-		for(var i = 0; i < a.length; i++) {
-			var h = a[i][0];
-			if(!a.some(function(b) {
-				return b.indexOf(h) > 0;
-			}))
-			{
-				head = h;
-				break;
-			}
-		}
-		if(!head) {
-			throw new Error("No linearization possible for " + a.join(','));
-		}
-		
-		lin.push(head);
-		
-		a = a.map(function (b) {
-			return b.filter(function (c) {
-				return c !== head;
-			});
-		});
-		a = a.filter(function (b) {
-			return b.length;
-		});
-		
-	}
-	return lin;
-}
-
-
-
-// Top type
-function Top() {
-	
-}
-Top.prototype.initialize = function () {
-	
-};
-Top.__mro__ = [Top];
-Top.subclasses = [];
-Top.__dict__ = Top.prototype;
-Top.toString = function () {
-	return "<object>"
-}
-
-
-// Returns the prototype
-coop.Class = function(name_or_bases_or_klass, bases_or_klass, klass) {
-	var name = (typeof name_or_bases_or_klass == "string") && name_or_bases_or_klass;
-	var bases = name
-		? (klass ? makeArray(bases_or_klass) : [])
-		: (bases_or_klass ? makeArray(name_or_bases_or_klass) : []);
-	klass = klass || bases_or_klass || name_or_bases_or_klass;
-	
-	if(bases.length == 0) bases.push(Top);
-	
-	function Class() {
-		if(this.initialize)
-			this.initialize.apply(this, arguments);
-	}
-	
-	Class.prototype = {};
-	Class.__dict__ = {};
-	Class.__name__ = name || "<class>";
-	Class.prototype.constructor = Class;
-	Class.subclasses = [];
-	Class.toString = function () {
-		return this.__name__;
-	}
-	
-	var base_mros = bases.map(function(b) { return b.__mro__; });
-	if(bases.length) base_mros.push(bases);
-	
-	Class.__mro__ = [Class].concat(merge(base_mros));
-	var _super = Class.prototype.super = function () {
-		var caller = _super.caller;
-		var klass = caller.__class__;
-		if(!klass)
-			throw new Error("super must be called from within method");
-		
-		return klass.super(this, caller.__name__).apply(this, arguments);
-	}
-	var super_co = Class.prototype.super_co = function(args, n) {
-		// Caller hack
-		var caller = super_co.caller;
-		super_co.__class__ = caller.__class__;
-		super_co.__name__ = caller.__name__;
-		return this.super.apply(this, Array.prototype.slice.call(args, n));
-	}
-
-	// Searches the MRO of the passed instance for the specified
-	// property, starting from the superclass of this class.
-	Class.super = function (instance, propertyName) {
-		var klass = Class;
-		var mro = instance.constructor.__mro__;
-		for(var i = mro.indexOf(klass) + 1; i < mro.length; i++) {
-			var c = mro[i];
-			if(propertyName in c.__dict__) {
-				return c.__dict__[propertyName];
-			}
-		}
-		throw new Error("Property " + propertyName + " has no definition in superclasses. MRO: " + mro);
-	}
-
-	Class.issuperclass = function (cls) {
-		var mro = cls.__mro__;
-		return mro && mro.indexOf(this) >= 0;
-	}
-	Class.isinstance = function (obj) {
-		return Class.issuperclass(obj.constructor);
-	}
-	
-	// Holds class property sources
-	Class.__props__ = {};
-	
-	Class.implement = function(props, klass) {
-		// Save class in functions for super() support
-		// TODO: get rid of this!
-		if(!klass) for(var n in props) {
-			var p = props[n];
-			if(typeof p == 'function') {
-				p.__class__ = Class;
-				p.__name__ = n;
-			}
-			Class.__dict__[n] = p;
-		};
-		
-		klass = klass || Class;
-		for(var n in props) {
-			var p = props[n];
-			var pc = Class.__props__.hasOwnProperty(n) && Class.__props__[n];
-			if(!pc || Class.__mro__.indexOf(klass) <= Class.__mro__.indexOf(pc)) {
-				Class.prototype[n] = p;
-				Class.__props__[n] = klass;
-			}
-		}
-		Class.subclasses.forEach(function(s) {
-			s.implement(props, klass);
-		});
-	}
-	
-	Class.implement(klass);
-	
-	bases.forEach(function(b) {
-		b.subclasses.push(Class);
-		for(var n in b.__props__) {
-			var ps = {}
-			ps[n] = b.prototype[n];
-			Class.implement(ps, b.__props__[n]);
-		}
-	});
-	
-	Class.derived = function (name_or_properties, properties) {
-		return new coop.Class(properties ? name_or_properties : Class,
-			properties ? Class : name_or_properties, properties);
-	};
-
-	return Class;
-};
-
-coop.Top = Top;
-
-coop.Options = new coop.Class({
-	initialize: function(options) {
-		this.options = {};
-		for(var i = this.constructor.__mro__.length - 1; i >= 0; i--) {
-			var opts = this.constructor.__mro__[i].prototype.options;
-			if(opts) for(var n in opts) {
-				this.options[n] = opts[n];
-			}
-		}
-		if(options) for(var n in options) {
-			this.options[n] = options[n];
-		}
-		this.super.apply(this, Array.prototype.slice.call(arguments, 1));
-	}
-});
-
-
-
-coop.pop = function (args, n) {
-	return Array.prototype.slice.call(args, n === undefined ? 1 : n);
-}
-coop.push = function (args) {
-	return Array.prototype.concat.call(coop.pop(arguments), args);
-}
-
-},{}]},{},[1])
+},{"./../../bower_components/coop/dist/coop.js":1,"./core":4}]},{},[2])
 ;

@@ -11,7 +11,7 @@ module.exports = function (P) {
 
 	core.DECK = DECK;
 
-	var Deck = core.Deck = new coop.Class({
+	var Deck = core.Deck = new coop.Class("Deck", {
 		initialize: function (data) {
 			this.cards = P.array(data.cards);
 		},
@@ -71,7 +71,7 @@ module.exports = function (P) {
 	})
 
 
-	core.Game = new coop.Class([Deck], {
+	core.Game = new coop.Class("Game", [Deck], {
 
 		initialize: function (data) {
 			console.log('init game');
@@ -135,7 +135,7 @@ module.exports = function (P) {
 
 	});
 
-	core.Player = Deck.derived({
+	core.Player = Deck.derived("Player", {
 		initialize: function (data, game) {
 			this.super(data);
 			this.game = game;
@@ -161,9 +161,9 @@ module.exports = function (P) {
 		}
 	});
 
-	core.Action = new coop.Class({
+	core.Action = new coop.Class("Action", {
 
-		isAvailable: function (game, actor, stage) {
+		isAvailable: function (game, actor, stage) {	
 
 			if ( this.stages.indexOf(stage) < 0 ) {
 				return false;

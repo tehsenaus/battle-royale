@@ -12,7 +12,8 @@
     "bootstrap": "3.0.0",
     "knockout.js": "~2.3.0",
     "less.js": "~1.4.2",
-    "knockout-mapping": "~2.4.1"
+    "knockout-mapping": "~2.4.1",
+    "coop": "~0.3.0"
   },
   "install": {
     "path": "static/lib",
